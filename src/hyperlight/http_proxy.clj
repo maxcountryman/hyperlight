@@ -62,16 +62,10 @@
 
 (defn create-handler
   "Creates a proxy handler."
-  [{:keys [format-set-cookies? format-x-forwarded?]
-    :or {format-set-cookies? true format-x-forwarded? true}
-    :as req-options}]
-  (as-> #(proxy-req % req-options) handler
-    (if format-set-cookies?
-      (middleware/wrap-format-set-cookies handler)
-      handler)
-    (if format-x-forwarded?
-      (middleware/wrap-x-forwarded handler)
-      handler)))
+  [req-options]
+  (-> #(proxy-req % req-options)
+      middleware/wrap-format-set-cookies
+      middleware/wrap-x-forwarded))
 
 (defn start-server
   "Starts an HTTP server using the provided Ring `handler`. Returns a server
