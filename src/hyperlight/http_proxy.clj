@@ -1,8 +1,7 @@
 (ns hyperlight.http-proxy
   (:require [aleph.http :as http]
             [aleph.netty :as netty]
-            [hyperlight.middleware :as middleware]
-            [manifold.deferred :as d])
+            [hyperlight.middleware :as middleware])
   (:import [io.netty.channel ChannelPipeline]
            [io.netty.handler.ssl SslContext]))
 
@@ -28,19 +27,18 @@
       :keep-alive? true}}))
 
 (defn proxy-req
-  "Proxies a request."
-  [{:keys [body headers query-string request-method uri]
-    :as req}
-   {:keys [sni-server-name port scheme server-name url]
+  "Proxies a request given a `req` map and a `req-options` map. Returns the
+  response as a Manifold deferred."
+  [{:keys [body headers query-string request-method scheme uri]}
+   {:keys [sni-server-name server-name url]
     :as req-options}]
-  (let [pool (if sni-server-name
-               (or (get @pools sni-server-name)
-                   (let [new-pool (create-sni-conn-pool sni-server-name)]
-                     (swap! pools assoc
-                       sni-server-name
-                       new-pool)
-                     new-pool))
-               default-pool)
+  (let [pool
+        (if sni-server-name
+          (or (get @pools sni-server-name)
+              (let [new-pool (create-sni-conn-pool sni-server-name)]
+                (swap! pools assoc sni-server-name new-pool)
+                new-pool))
+          default-pool)
         default-req-options
         {:pool pool
          :throw-exceptions? false
@@ -48,8 +46,7 @@
         uri-options
         (if url
           {:url (str url uri)}
-          {:port port :scheme scheme :server-name server-name :uri uri})]
-    (d/chain'
+          {:scheme scheme :server-name server-name :uri uri})]
       (http/request
         (merge
           {:body body
@@ -58,14 +55,15 @@
            :request-method request-method}
           default-req-options
           req-options
-          uri-options)))))
+          uri-options))))
 
 (defn create-handler
   "Creates a proxy handler."
-  [req-options]
+  [{:keys [host-header] :as req-options}]
   (-> #(proxy-req % req-options)
       middleware/wrap-format-set-cookies
-      middleware/wrap-x-forwarded))
+      middleware/wrap-x-forwarded
+      (middleware/wrap-host-header host-header)))
 
 (defn start-server
   "Starts an HTTP server using the provided Ring `handler`. Returns a server
