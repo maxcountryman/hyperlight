@@ -9,7 +9,8 @@
 
 (def default-pool
   (http/connection-pool
-    {:connection-options {:keep-alive? true}}))
+    {:connection-options
+     {:keep-alive? true :raw-stream? true}}))
 
 (defn create-sni-conn-pool
   "Creates a connection pool for a given `server-name` with Server Name
@@ -24,7 +25,8 @@
                 sni-ssl-handler (.newHandler insecure-ssl-context
                                   (-> p .channel .alloc) server-name 443)]
             (.replace p "ssl-handler" "sni-ssl-handler" sni-ssl-handler))))
-      :keep-alive? true}}))
+      :keep-alive? true
+      :raw-stream? true}}))
 
 (defn proxy-req
   "Proxies a request given a `req` map and a `req-options` map. Returns the
@@ -68,6 +70,6 @@
 (defn start-server
   "Starts an HTTP server using the provided Ring `handler`. Returns a server
   object."
-  [handler {:or {executor :none}
+  [handler {:or {executor :none raw-stream? true}
             :as options}]
   (http/start-server handler options))
