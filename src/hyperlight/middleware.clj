@@ -5,7 +5,7 @@
 (defn- get-x-forwarded-for
   [req]
   (if-let [forwarded-for (get-in req [:headers "x-forwarded-for"])]
-    (str forwarded-for "," (:remote-addr req))
+    (str forwarded-for ", " (:remote-addr req))
     (:remote-addr req)))
 
 (defn- get-x-forwarded-proto
