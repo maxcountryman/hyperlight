@@ -8,6 +8,10 @@
     (str forwarded-for "," (:remote-addr req))
     (:remote-addr req)))
 
+(defn- get-x-forwarded-proto
+  [{scheme :scheme}]
+  (if (= :scheme :https) "https" "http"))
+
 (defn format-set-cookies
   "Formats set-cookie headers."
   [{headers :headers :as rsp}]
@@ -18,7 +22,10 @@
 (defn format-x-forwarded
   "Formats x-forwarded headers."
   [req]
-  (assoc-in req [:headers "x-forwarded-for"] (get-x-forwarded-for req)))
+  (->
+    req
+    (assoc-in [:headers "x-forwarded-for"] (get-x-forwarded-for req))
+    (assoc-in [:headers "x-forwarded-proto"] (get-x-forwarded-proto req))))
 
 (defn wrap-format-set-cookies
   "Wraps formatting of set-cookie headers."
