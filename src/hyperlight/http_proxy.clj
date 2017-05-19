@@ -49,15 +49,15 @@
         (if url
           {:url (str url uri)}
           {:scheme scheme :server-name server-name :uri uri})]
-      (http/request
-        (merge
-          {:body body
-           :headers headers
-           :query-string query-string
-           :request-method request-method}
-          default-req-options
-          req-options
-          uri-options))))
+    (http/request
+      (merge
+        {:body body
+         :headers headers
+         :query-string query-string
+         :request-method request-method}
+        default-req-options
+        req-options
+        uri-options))))
 
 (defn create-handler
   "Creates a proxy handler."
