@@ -70,6 +70,6 @@
 (defn start-server
   "Starts an HTTP server using the provided Ring `handler`. Returns a server
   object."
-  [handler {:or {executor :none raw-stream? true}
-            :as options}]
-  (http/start-server handler options))
+  [handler options]
+  (let [default-options {:executor :none :raw-stream? true}]
+    (http/start-server handler (merge default-options options))))
