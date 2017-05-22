@@ -4,10 +4,9 @@
             [manifold.deferred :as d]))
 
 (defn- get-x-forwarded-for
-  [req]
-  (if-let [forwarded-for (get-in req [:headers "x-forwarded-for"])]
-    (str forwarded-for ", " (:remote-addr req))
-    (:remote-addr req)))
+  [{{:strs [x-forwarded-for]} :headers remote-addr :remote-addr}]
+  (string/join ", "
+    (remove nil? [x-forwarded-for remote-addr])))
 
 (defn- get-x-forwarded-port
   [{{:strs [x-forwarded-port]} :headers scheme :scheme}]
