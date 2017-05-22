@@ -13,9 +13,8 @@
   [{{:strs [x-forwarded-port]} :headers scheme :scheme}]
   (let [secure? (= scheme :https)
         forwarding-port (if secure? "443" "80")]
-    (if x-forwarded-port
-      (str x-forwarded-port ", " forwarding-port)
-      forwarding-port)))
+    (string/join ", "
+      (remove nil? [x-forwarded-port forwarding-port]))))
 
 (defn- get-x-forwarded-proto
   [{{:strs [x-forwarded-proto]} :headers scheme :scheme}]
