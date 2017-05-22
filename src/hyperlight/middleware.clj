@@ -3,24 +3,24 @@
             [clojure.string :as string]
             [manifold.deferred :as d]))
 
+(defn- join-headers [& headers]
+  (string/join ", " (remove nil? headers)))
+
 (defn- get-x-forwarded-for
   [{{:strs [x-forwarded-for]} :headers remote-addr :remote-addr}]
-  (string/join ", "
-    (remove nil? [x-forwarded-for remote-addr])))
+  (join-headers x-forwarded-for remote-addr))
 
 (defn- get-x-forwarded-port
   [{{:strs [x-forwarded-port]} :headers scheme :scheme}]
   (let [secure? (= scheme :https)
         forwarding-port (if secure? "443" "80")]
-    (string/join ", "
-      (remove nil? [x-forwarded-port forwarding-port]))))
+    (join-headers x-forwarded-port forwarding-port)))
 
 (defn- get-x-forwarded-proto
   [{{:strs [x-forwarded-proto]} :headers scheme :scheme}]
   (let [secure? (= scheme :https)
         forwarding-proto (if secure? "https" "http")]
-    (string/join ", "
-      (remove nil? [x-forwarded-proto forwarding-proto]))))
+    (join-headers x-forwarded-proto forwarding-proto)))
 
 (defn format-set-cookies
   "Formats set-cookie headers."
