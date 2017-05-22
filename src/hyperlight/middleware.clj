@@ -1,5 +1,6 @@
 (ns hyperlight.middleware
   (:require [aleph.http :as http]
+            [clojure.string :as string]
             [manifold.deferred :as d]))
 
 (defn- get-x-forwarded-for
@@ -17,8 +18,11 @@
       forwarding-port)))
 
 (defn- get-x-forwarded-proto
-  [{scheme :scheme}]
-  (if (= :scheme :https) "https" "http"))
+  [{{:strs [x-forwarded-proto]} :headers scheme :scheme}]
+  (let [secure? (= scheme :https)
+        forwarding-proto (secure? "https" "http")]
+    (string/join ", "
+      (remove nil? [x-forwarded-proto forwarding-proto]))))
 
 (defn format-set-cookies
   "Formats set-cookie headers."
