@@ -18,7 +18,7 @@
 (defn- get-x-forwarded-proto
   [{{:strs [x-forwarded-proto]} :headers scheme :scheme}]
   (let [secure? (= scheme :https)
-        forwarding-proto (secure? "https" "http")]
+        forwarding-proto (if secure? "https" "http")]
     (string/join ", "
       (remove nil? [x-forwarded-proto forwarding-proto]))))
 
