@@ -8,6 +8,14 @@
     (str forwarded-for ", " (:remote-addr req))
     (:remote-addr req)))
 
+(defn- get-x-forwarded-port
+  [{{:strs [x-forwarded-port]} :headers scheme :scheme}]
+  (let [secure? (= scheme :https)
+        forwarding-port (if secure? "443" "80")]
+    (if x-forwarded-port
+      (str x-forwarded-port ", " forwarding-port)
+      forwarding-port)))
+
 (defn- get-x-forwarded-proto
   [{scheme :scheme}]
   (if (= :scheme :https) "https" "http"))
@@ -25,6 +33,7 @@
   (->
     req
     (assoc-in [:headers "x-forwarded-for"] (get-x-forwarded-for req))
+    (assoc-in [:headers "x-forwarded-port"] (get-x-forwarded-port req))
     (assoc-in [:headers "x-forwarded-proto"] (get-x-forwarded-proto req))))
 
 (defn wrap-format-set-cookies
