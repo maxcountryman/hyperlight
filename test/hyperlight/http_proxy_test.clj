@@ -18,7 +18,7 @@
 
 (defn proxy-handler
   [req]
-  (http-proxy/proxy-req req {:url proxy-url}))
+  (http-proxy/proxy-req (assoc req :url proxy-url)))
 
 (defmacro with-server
   [server & body]

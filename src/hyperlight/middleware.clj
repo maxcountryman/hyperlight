@@ -50,11 +50,3 @@
   [handler]
   (fn [req]
     (handler (format-x-forwarded req))))
-
-(defn wrap-host-header
-  "Wraps setting the host header."
-  [handler host]
-  (fn [req]
-    (if host
-      (handler (assoc-in req [:headers "host"] host))
-      (handler req))))
