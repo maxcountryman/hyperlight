@@ -16,9 +16,13 @@
   {:status 200
    :body "Hello, world!"})
 
+(defn predicated-handler
+  [predicate req]
+  (predicate req))
+
 (defn proxy-handler
   [req]
-  (http-proxy/proxy-req (assoc req :url proxy-url)))
+  (http-proxy/proxy-request (assoc req :url proxy-url)))
 
 (defmacro with-server
   [server & body]
@@ -44,3 +48,17 @@
     (with-proxy-handler proxy-handler
       (let [rsp @(http/get (str "http://localhost:" proxy-port))]
         (is (= "Hello, world!" (bs/to-string (:body rsp))))))))
+
+(deftest test-create-handler
+  (let [handler (http-proxy/create-handler
+                  {:url proxy-url
+                   :headers {"host" "example.com"}})]
+    (with-handler
+      (partial predicated-handler
+        (fn [{{:strs [host]} :headers}]
+          (is (= host "example.com"))
+          {:status 200
+           :body "Hello, world!"}))
+      (with-proxy-handler handler
+        (let [rsp @(http/get (str "http://localhost:" proxy-port))]
+          (is (= "Hello, world!" (bs/to-string (:body rsp)))))))))
