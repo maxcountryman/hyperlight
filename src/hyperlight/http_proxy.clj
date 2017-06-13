@@ -28,44 +28,43 @@
       :keep-alive? true
       :raw-stream? true}}))
 
-(defn proxy-req
-  "Proxies a request given a `req` map and a `req-options` map. Returns the
-  response as a Manifold deferred."
-  [{:keys [body headers query-string request-method scheme uri]}
-   {:keys [sni-server-name server-name url]
-    :as req-options}]
-  (let [pool
-        (if sni-server-name
-          (or (get @pools sni-server-name)
-              (let [new-pool (create-sni-conn-pool sni-server-name)]
-                (swap! pools assoc sni-server-name new-pool)
-                new-pool))
-          default-pool)
-        default-req-options
-        {:pool pool
+(defn proxy-request
+  "Given a request map, makes an HTTP request via this map, and returns a
+  deferred representing the response."
+  [{:keys [scheme server-name sni-server-name uri url] :as req}]
+  (let [default-options
+        {:pool (if sni-server-name
+                 (or (get @pools sni-server-name)
+                     (let [new-pool (create-sni-conn-pool sni-server-name)]
+                       (swap! pools assoc sni-server-name new-pool)
+                       new-pool))
+                 default-pool)
          :throw-exceptions? false
          :follow-redirects? false}
-        uri-options
+        url-options
         (if url
           {:url (str url uri)}
-          {:scheme scheme :server-name server-name :uri uri})]
-    (http/request
-      (merge
-        {:body body
-         :headers headers
-         :query-string query-string
-         :request-method request-method}
-        default-req-options
-        req-options
-        uri-options))))
+          {:scheme scheme :server-name server-name :uri uri})
+        merged-req (merge default-options req url-options)]
+    (http/request merged-req)))
 
 (defn create-handler
-  "Creates a proxy handler."
-  [{:keys [host-header] :as req-options}]
-  (-> #(proxy-req % req-options)
+  "Given a map of request options which are merged with the received request
+  map, returns a proxy handler. Extends the request map such that
+  `:sni-server-name` may be provided to indicate the server-name sent with
+  secure requests. Returns the handler wrapped in convenience middleware."
+  [proxy-req]
+  (letfn [(handler [req]
+            (let [merge-req-map
+                  (fn [& vs]
+                    (if (every? map? vs)
+                      (apply merge vs)
+                      (last vs)))
+                  merged-req (merge-with merge-req-map req proxy-req)]
+              (proxy-request merged-req)))]
+    (-> handler
       middleware/wrap-format-set-cookies
-      middleware/wrap-x-forwarded
-      (middleware/wrap-host-header host-header)))
+      middleware/wrap-x-forwarded)))
 
 (defn start-server
   "Starts an HTTP server using the provided Ring `handler`. Returns a server
