@@ -1,4 +1,4 @@
-(defproject hyperlight "0.1.3"
+(defproject hyperlight "0.2.0"
   :description "A performance-focused HTTP reverse proxy"
   :license {:name "Eclipse Public License"}
   :dependencies [[aleph "0.4.4-alpha4"]
