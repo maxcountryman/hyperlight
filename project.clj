@@ -7,4 +7,8 @@
                        "-XX:+UseConcMarkSweepGC"
                        "-Xmx2g"
                        "-XX:+HeapDumpOnOutOfMemoryError"]
+  :profiles {:dev {:dependencies [[criterium "0.4.4"]]}}
+  :test-selectors {:default   (complement :benchmark)
+                   :benchmark :benchmark
+                   :all       (constantly true)}
   :global-vars {*warn-on-reflection* true})
