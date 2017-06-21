@@ -3,42 +3,70 @@
             [aleph.netty :as netty]
             [hyperlight.middleware :as middleware])
   (:import [io.netty.channel ChannelPipeline]
+           [io.netty.handler.codec.http HttpContentDecompressor]
            [io.netty.handler.ssl SslContext]))
 
-(def pools (atom {}))
+(def secure-pools (atom {}))
 
-(def default-pool
-  (http/connection-pool
-    {:connection-options
-     {:keep-alive? true :raw-stream? true}}))
+(defn create-conn-pool
+  "Creates a connection pool. Decompresses compressed response streams if
+  `decompress-content?` is `true`. Defaults to `false`. Returns the connection
+  pool."
+  ([]
+   (create-conn-pool false))
+  ([decompress-content?]
+   (http/connection-pool
+     {:connection-options
+      {:pipeline-transform
+       (fn [^ChannelPipeline p]
+         (when decompress-content?
+           (let [decompressor (HttpContentDecompressor.)]
+             (.addAfter p "http-client" "decompressor" decompressor))))
+       :keep-alive? true
+       :raw-stream? true}})))
 
 (defn create-sni-conn-pool
   "Creates a connection pool for a given `server-name` with Server Name
-  Indication provided. Returns the connection pool."
-  [server-name]
-  (http/connection-pool
-    {:connection-options
-     {:pipeline-transform
-      (fn [^ChannelPipeline p]
-        (when (some #{"ssl-handler"} (.names p))
-          (let [^SslContext insecure-ssl-context (netty/insecure-ssl-client-context)
-                sni-ssl-handler (.newHandler insecure-ssl-context
-                                  (-> p .channel .alloc) server-name 443)]
-            (.replace p "ssl-handler" "sni-ssl-handler" sni-ssl-handler))))
-      :keep-alive? true
-      :raw-stream? true}}))
+  Indication provided. Decompresses compressed response streams if
+  `decompress-content?` is `true`. Defaults to `false`. Returns the connection
+  pool."
+  ([server-name]
+   (create-sni-conn-pool server-name false))
+  ([server-name decompress-content?]
+   (http/connection-pool
+     {:connection-options
+      {:pipeline-transform
+       (fn [^ChannelPipeline p]
+         (when (some #{"ssl-handler"} (.names p))
+           (let [^SslContext insecure-ssl-context (netty/insecure-ssl-client-context)
+                 sni-ssl-handler (.newHandler insecure-ssl-context
+                                   (-> p .channel .alloc) server-name 443)]
+             (.replace p "ssl-handler" "sni-ssl-handler" sni-ssl-handler)))
+         (when decompress-content?
+           (let [decompressor (HttpContentDecompressor.)]
+             (.addAfter p "http-client" "decompressor" decompressor))))
+       :keep-alive? true
+       :raw-stream? true}})))
+
+(defn get-pool
+  "Returns a connection pool configured according to `sni-server-name` and
+  `decompress-content?`."
+  [sni-server-name decompress-content?]
+  (if sni-server-name
+    (get @secure-pools sni-server-name
+      (let [new-pool (create-sni-conn-pool sni-server-name decompress-content?)]
+        (swap! secure-pools assoc sni-server-name new-pool)
+        new-pool))
+    (create-conn-pool decompress-content?)))
 
 (defn proxy-request
   "Given a request map, makes an HTTP request via this map, and returns a
   deferred representing the response."
-  [{:keys [scheme server-name sni-server-name uri url] :as req}]
+  [{:keys [scheme server-name sni-server-name uri url decompress-content?]
+    :or {decompress-content? false}
+    :as req}]
   (let [default-options
-        {:pool (if sni-server-name
-                 (or (get @pools sni-server-name)
-                     (let [new-pool (create-sni-conn-pool sni-server-name)]
-                       (swap! pools assoc sni-server-name new-pool)
-                       new-pool))
-                 default-pool)
+        {:pool (get-pool sni-server-name decompress-content?)
          :throw-exceptions? false
          :follow-redirects? false}
         url-options
