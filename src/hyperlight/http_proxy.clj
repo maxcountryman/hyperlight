@@ -6,6 +6,8 @@
            [io.netty.handler.codec.http HttpContentDecompressor]
            [io.netty.handler.ssl SslContext]))
 
+(def default-pool (promise))
+
 (def secure-pools (atom {}))
 
 (defn create-conn-pool
@@ -48,16 +50,27 @@
        :keep-alive? true
        :raw-stream? true}})))
 
+(defn- get-default-pool
+  [decompress-content?]
+  (if (realized? default-pool)
+    @default-pool
+    (do (deliver default-pool (create-conn-pool decompress-content?))
+        @default-pool)))
+
+(defn- get-secure-pool
+  [sni-server-name decompress-content?]
+  (or (get @secure-pools sni-server-name)
+      (let [new-pool (create-sni-conn-pool sni-server-name decompress-content?)]
+        (swap! secure-pools assoc sni-server-name new-pool)
+        new-pool)))
+
 (defn get-pool
   "Returns a connection pool configured according to `sni-server-name` and
   `decompress-content?`."
   [sni-server-name decompress-content?]
   (if sni-server-name
-    (get @secure-pools sni-server-name
-      (let [new-pool (create-sni-conn-pool sni-server-name decompress-content?)]
-        (swap! secure-pools assoc sni-server-name new-pool)
-        new-pool))
-    (create-conn-pool decompress-content?)))
+    (get-secure-pool sni-server-name decompress-content?)
+    (get-default-pool decompress-content?)))
 
 (defn proxy-request
   "Given a request map, makes an HTTP request via this map, and returns a
